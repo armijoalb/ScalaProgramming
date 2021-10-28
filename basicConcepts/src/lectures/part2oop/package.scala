@@ -1,0 +1,8 @@
+package lectures
+
+// There is only one package object per package.
+
+package object part2oop {
+  def sayHello: Unit = println("hello, scala")
+  val SPEED_OF_LIGHT = 299792458
+}
