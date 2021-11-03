@@ -23,6 +23,12 @@ abstract class MyList[+A] {
   def filter(predicate: A => Boolean): MyList[A]
   def ++[B >: A](list: MyList[B]): MyList[B]
   def flatMap[B](transformer:A => MyList[B]):MyList[B]
+
+  // hofs and curries
+  def forEach(func: A=>Unit):Unit
+  def sort(compare:(A,A)=>Int):MyList[A]
+  def zipWith[B,C](list:MyList[B], func:(A,B)=>C):MyList[C]
+  def fold[B](i:B)(func:(B,A) => B):B
 }
 
 case object Empty extends MyList[Nothing] {
@@ -36,6 +42,16 @@ case object Empty extends MyList[Nothing] {
   override def flatMap[B](transformer:Nothing => MyList[B]):MyList[B] = Empty
   override def filter(predicate: Nothing => Boolean): MyList[Nothing] = Empty
   override def ++[B >: Nothing](list: MyList[B]): MyList[B] = list
+
+  override def forEach(func: Nothing => Unit): Unit = ()
+  override def sort(compare: (Nothing, Nothing) => Int): MyList[Nothing] = Empty
+
+  override def zipWith[B, C](list: MyList[B], func: (Nothing, B) => C): MyList[C] = {
+    if (!list.isEmpty) throw new RuntimeException("List do not have the same length")
+    else Empty
+  }
+
+  override def fold[B](i: B)(func: (B, Nothing) => B): B = i
 }
 
 class Cons[+A](h:A, t:MyList[A]) extends MyList[A] {
@@ -64,6 +80,29 @@ class Cons[+A](h:A, t:MyList[A]) extends MyList[A] {
     else t.filter(predicate)
   }
 
+  override def forEach(func: A => Unit): Unit = {
+    func(h)
+    t.forEach(func)
+  }
+
+  override def sort(compare: (A, A) => Int): MyList[A] = {
+    def insert(x:A, sortedList:MyList[A]):MyList[A] = {
+      if (sortedList.isEmpty) new Cons(x,Empty)
+      else if (compare(x,sortedList.head) <= 0) new Cons(x, sortedList)
+      else new Cons(sortedList.head, insert(x, sortedList.tail))
+    }
+    val sortedTail =  t.sort(compare)
+    insert(h, sortedTail)
+  }
+
+  override def zipWith[B, C](list: MyList[B], func: (A, B) => C): MyList[C] = {
+    if (list.isEmpty) throw new RuntimeException("List do not have the same length")
+    else new Cons(func(h, list.head), t.zipWith(list.tail, func))
+  }
+
+  override def fold[B](i: B)(func: (B, A) => B): B = {
+    t.fold(func(i, h))(func)
+  }
 }
 // We dont need them. Deleted
 /*trait MyPredicate[-T] { // T => Boolean
@@ -100,4 +139,16 @@ object ListTests extends App {
   println(listOfInts.flatMap(elem => new Cons(elem, new Cons(elem+1, Empty))))
 
   println(listOfInts == clonelistOfInts)
+
+  listOfInts.forEach(println)
+  println(listOfInts.sort((x,y)=> y-x))
+  println(listOfInts2.zipWith[String, String](listOfStrings, _ + "-" +_))
+  println(listOfInts.fold(0)(_+_))
+
+  // test for comprehesions.
+  val combinations = for {
+    n <- listOfInts
+    str <- listOfStrings
+  } yield n + "-" + str
+  println(combinations)
 }
